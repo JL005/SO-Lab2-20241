@@ -85,11 +85,11 @@ char *find_command(char *command)
     {
         snprintf(full_path, sizeof(full_path), "%s/%s", shell_path[i], command);
         if (access(full_path, X_OK) == 0)
-        { 
+        {
             return full_path;
         }
     }
-    return NULL; 
+    return NULL;
 }
 
 int redirect_output(char *filename)
@@ -102,8 +102,8 @@ int redirect_output(char *filename)
         print_error();
         return -1;
     }
-    dup2(fd, STDOUT_FILENO); 
-    dup2(fd, STDERR_FILENO); 
+    dup2(fd, STDOUT_FILENO);
+    dup2(fd, STDERR_FILENO);
     close(fd);
     return 0;
 }
@@ -113,8 +113,8 @@ void execute_external_command(char **args, char *redirect_file)
     char *command_path = find_command(args[0]);
 
     if (command_path == NULL)
-    { 
-        
+    {
+
         print_error();
         return;
     }
@@ -126,13 +126,13 @@ void execute_external_command(char **args, char *redirect_file)
             {
                 exit(1);
             }
-        } 
-        execvp(command_path, args); 
+        }
+        execvp(command_path, args);
         perror(args[0]);
         exit(1);
     }
     else
-    { 
+    {
         int status;
         waitpid(-1, &status, 0);
     }
@@ -147,13 +147,20 @@ void execute_command(char *input)
     char *file = strtok(NULL, ">");
     if (file != NULL)
     {
-        trim_newline(file); 
-        if (strlen(file) == 0)
+        trim_newline(file);
+        char *filename = strtok(file, " \t");
+        char *extra = strtok(NULL, " \t");
+        if (filename == NULL || extra != NULL)
         {
-            print_error(); 
+            print_error();
             return;
         }
-        redirect_file = strtok(file, " \t"); 
+        /*if (strlen(file) == 0)
+        {
+            print_error();
+            return;
+        }*/
+        redirect_file = strtok(file, " \t");
     }
     char *token = strtok(command, " \t\n");
     while (token != NULL)
