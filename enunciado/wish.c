@@ -9,6 +9,9 @@
 
 char error_message[30] = "An error has occurred\n";
 
+char *shell_path[MAX_ARGS];
+int path_count = 0;
+
 void print_error()
 {
     write(STDERR_FILENO, error_message, strlen(error_message));
@@ -16,15 +19,24 @@ void print_error()
 
 void handle_exit(char **args)
 {
-    if (args[1] != NULL) {
+    if (args[1] != NULL)
+    {
         print_error();
         return;
     }
     exit(0);
 }
 
-void handle_path(char **args)
-{
+void handle_path(char **args) {
+    if (args == NULL) {
+        print_error();
+        return;
+    }
+    path_count = 0;
+    for (int i = 1; args[i] != NULL; i++) {
+        shell_path[path_count++] = strdup(args[i]);
+    }
+    shell_path[path_count] = NULL; 
 }
 
 void handle_cd(char **args)
@@ -37,19 +49,47 @@ void handle_cd(char **args)
     {
         print_error();
     }
+    else {
+        char cwd[MAX_INPUT];
+        if (getcwd(cwd, sizeof(cwd)) != NULL) {
+        } else {
+            print_error();
+        }
+    }
 }
+
+char *find_command(char *command)
+{
+    static char full_path[MAX_INPUT];
+    for (int i = 0; i < path_count; i++)
+    {
+        snprintf(full_path, sizeof(full_path), "%s/%s", shell_path[i], command);
+        if (access(full_path, X_OK) == 0)
+        { 
+            return full_path;
+        }
+    }
+    return NULL; 
+}
+
 void execute_external_command(char **args)
 {
+    char *command_path = find_command(args[0]);
+    if (command_path == NULL)
+    { 
+        print_error();
+        return;
+    }
     if (fork() == 0)
     {                          
-        execvp(args[0], args); 
-        print_error();         
+        execvp(command_path, args); 
+        print_error();        
         exit(1);
     }
     else
     { 
         int status;
-        waitpid(-1, &status, 0); 
+        waitpid(-1, &status, 0);
     }
 }
 
@@ -58,12 +98,14 @@ void execute_command(char *input)
     char *args[MAX_ARGS];
     char *token = strtok(input, " \t\n");
     int i = 0;
+
     while (token != NULL)
     {
         args[i++] = token;
         token = strtok(NULL, " \t\n");
     }
     args[i] = NULL;
+
     if (args[0] == NULL)
         return;
     if (strcmp(args[0], "exit") == 0)
@@ -82,7 +124,6 @@ void execute_command(char *input)
     {
         execute_external_command(args);
     }
-
 }
 
 void trim_newline(char *str)
@@ -94,9 +135,17 @@ void trim_newline(char *str)
     }
 }
 
+void initialize_path() {
+    shell_path[0] = strdup("/bin");
+    shell_path[1] = strdup("/usr/bin");  
+    path_count = 2;
+    shell_path[2] = NULL;
+}
+
 int main(int argc, char *argv[])
 {
     FILE *input = stdin;
+    initialize_path();
 
     if (argc == 2)
     {
