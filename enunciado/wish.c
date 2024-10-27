@@ -143,6 +143,23 @@ void execute_command(char *input)
     char *args[MAX_ARGS];
     char *redirect_file = NULL;
     int i = 0;
+    
+
+    int redirection_count = 0;
+
+    // Verifica si hay múltiples operadores '>'
+    for (int j = 0; input[j] != '\0'; j++)
+    {
+        if (input[j] == '>')
+        {
+            redirection_count++;
+        }
+    }
+    if (redirection_count > 1)
+    { // Error si hay más de un operador '>'
+        print_error();
+        return;
+    }
     char *command = strtok(input, ">");
     char *file = strtok(NULL, ">");
     if (file != NULL)
