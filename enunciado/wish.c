@@ -50,9 +50,9 @@ void handle_path(char **args)
     path_count = 0;
     for (int i = 1; args[i] != NULL; i++)
     {
-        shell_path[path_count++] = strdup(args[i]); // Guarda el directorio
+        shell_path[path_count++] = strdup(args[i]);
     }
-    shell_path[path_count] = NULL; // Marca el final del path
+    shell_path[path_count] = NULL;
 }
 
 void handle_cd(char **args)
@@ -97,8 +97,6 @@ int redirect_output(char *filename)
     int fd = open(filename, O_WRONLY | O_CREAT | O_TRUNC, S_IRWXU);
     if (fd < 0)
     {
-        printf("error: %s\n", filename);
-
         print_error();
         return -1;
     }
@@ -138,16 +136,70 @@ void execute_external_command(char **args, char *redirect_file)
     }
 }
 
+void trim_whitespace(char *str)
+{
+    size_t len = strlen(str);
+    while (len > 0 && (str[len - 1] == '\n' || str[len - 1] == ' ' || str[len - 1] == '\t'))
+    {
+        str[--len] = '\0';
+    }
+
+    char *start = str;
+    while (*start == ' ' || *start == '\t')
+    {
+        start++;
+    }
+    if (start != str)
+    {
+        memmove(str, start, strlen(start) + 1);
+    }
+}
+
+void execute_parallel(char *input)
+{
+    char *command;
+    char *saveptr;
+
+    command = strtok_r(input, "&", &saveptr);
+
+    while (command != NULL)
+    {
+        if (*command == '\0')
+        {
+            break;
+        }
+
+        if (strlen(command) > 0)
+        {
+            char *args[MAX_ARGS];
+            int i = 0;
+            char *token = strtok(command, " \t\n");
+            while (token != NULL && i < MAX_ARGS - 1)
+            {
+                args[i++] = token;
+                token = strtok(NULL, " \t\n");
+            }
+            args[i] = NULL;
+
+            if (args[0] != NULL)
+            {
+                execute_external_command(args, NULL); // Ejecuta el comando
+            }
+        }
+
+        command = strtok_r(NULL, "&", &saveptr);
+    }
+
+    while (wait(NULL) > 0)
+        ;
+}
 void execute_command(char *input)
 {
     char *args[MAX_ARGS];
     char *redirect_file = NULL;
     int i = 0;
-    
-
     int redirection_count = 0;
 
-    // Verifica si hay múltiples operadores '>'
     for (int j = 0; input[j] != '\0'; j++)
     {
         if (input[j] == '>')
@@ -155,8 +207,18 @@ void execute_command(char *input)
             redirection_count++;
         }
     }
+    if (strcmp(input, "&\n") == 0)
+    {
+        return;
+    }
+    if (strstr(input, "&") != NULL)
+    {
+        execute_parallel(input);
+        return;
+    }
+
     if (redirection_count > 1)
-    { // Error si hay más de un operador '>'
+    {
         print_error();
         return;
     }
@@ -205,6 +267,7 @@ void execute_command(char *input)
     else
     {
         execute_external_command(args, redirect_file);
+        wait(NULL);
     }
 }
 
